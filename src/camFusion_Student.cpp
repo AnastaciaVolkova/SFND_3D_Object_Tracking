@@ -153,7 +153,39 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
 {
-    // ...
+    // 1. Compute velocity.
+    // 1.1. Compute distance changes between corresponding lidar points of current and previous frames.
+    std::vector<double> d_dist;
+    std::transform(
+        lidarPointsCurr.begin(),
+        lidarPointsCurr.end(),
+        lidarPointsPrev.begin(),
+        std::back_inserter(d_dist),
+        [](auto c, auto p){return sqrt(pow(c.x-p.x, 2)+pow(c.y-p.y, 2)+pow(c.z-p.z, 2)); });
+
+    // 1.2 Average over distance changes which are between Q1 and Q3.
+    std::sort(d_dist.begin(), d_dist.end());
+    double avg_dist = std::accumulate(d_dist.begin() + d_dist.size()/4, d_dist.end() - d_dist.size()/4, 0.0);
+    avg_dist /= (d_dist.size()/2);
+
+    double d_t = 1/frameRate; // Get delta from frame rate.
+
+    double v = (avg_dist)/d_t; // Compute velocity.
+
+    // Take into account distances which are between Q1 and Q3.
+    // 2.1. Compute distances to objects on current frame.
+    d_dist.clear();
+    std::transform(
+        lidarPointsCurr.begin(),
+        lidarPointsCurr.end(),
+        std::back_inserter(d_dist),
+        [](auto a){return sqrt(pow(a.x, 2) + pow(a.y, 2) + pow(a.z, 2));}
+    );
+    // 2.2. Average over distances which are between Q1 and Q3.
+    std::sort(d_dist.begin(), d_dist.end());
+    avg_dist = std::accumulate(d_dist.begin() + d_dist.size()/4, d_dist.end() - d_dist.size()/4, 0.0);
+    avg_dist /= (d_dist.size()/2);
+    TTC = avg_dist/v;
 }
 
 
