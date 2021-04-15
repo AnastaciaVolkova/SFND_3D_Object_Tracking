@@ -196,10 +196,10 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
     for (auto m: matches){
         for (auto bb_prev: prevFrame.boundingBoxes){
             // Check if train point of match is inside current bounding box of previous frame.
-            if (bb_prev.roi.contains(prevFrame.keypoints[m.trainIdx].pt)){
+            if (bb_prev.roi.contains(prevFrame.keypoints[m.queryIdx].pt)){
                 for (auto bb_curr: currFrame.boundingBoxes){
                     // Check if query point is inside bounding box of current frame.
-                    if (bb_curr.roi.contains(currFrame.keypoints[m.queryIdx].pt)){
+                    if (bb_curr.roi.contains(currFrame.keypoints[m.trainIdx].pt)){
                         freq[bb_prev.boxID][bb_curr.boxID].push_back(m);
                     }
                 }
@@ -212,7 +212,7 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
         bbBestMatches[pr->first] = it->first;
         currFrame.boundingBoxes[it->first].kptMatches = it->second;
         for (auto m: it->second){
-            currFrame.boundingBoxes[it->first].keypoints.push_back(currFrame.keypoints[m.queryIdx]);
+            currFrame.boundingBoxes[it->first].keypoints.push_back(currFrame.keypoints[m.trainIdx]);
         }
     }
 }
