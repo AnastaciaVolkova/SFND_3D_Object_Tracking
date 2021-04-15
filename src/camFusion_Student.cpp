@@ -2,6 +2,7 @@
 #include <iostream>
 #include <algorithm>
 #include <numeric>
+#include <tuple>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
@@ -138,7 +139,28 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 // associate a given bounding box with the keypoints it contains
 void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
 {
-    // ...
+    // Indices of keypoints and distances to corresponding previous ones.
+    std::vector<std::tuple<int, double>> ix_dist;
+
+    // Remember keypoints which are inside roi.
+    for (int m = 0; m < kptMatches.size(); m++){
+        if (boundingBox.roi.contains(kptsCurr[kptMatches[m].trainIdx].pt)){
+            ix_dist.push_back(
+                std::make_tuple(m,
+                sqrt(
+                pow(kptsCurr[kptMatches[m].trainIdx].pt.x-kptsPrev[kptMatches[m].queryIdx].pt.x, 2.0) +
+                pow(kptsCurr[kptMatches[m].trainIdx].pt.y-kptsPrev[kptMatches[m].queryIdx].pt.y, 2.0)
+                ))
+            );
+        }
+    }
+
+    // Sort distances.
+    std::sort(ix_dist.begin(), ix_dist.end(), [](auto a, auto b){return std::get<1>(a) < std::get<1>(b);});
+
+    // Save only matches, which keypoints distances are in [Q1;Q3]
+    for (auto it = ix_dist.begin() + ix_dist.size()/4; it < (ix_dist.end() - ix_dist.size()/4); it++)
+        boundingBox.kptMatches.push_back(kptMatches[std::get<0>(*it)]);
 }
 
 
