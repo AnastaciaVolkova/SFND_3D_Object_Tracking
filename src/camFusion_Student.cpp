@@ -135,7 +135,6 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
     }
 }
 
-
 // associate a given bounding box with the keypoints it contains
 void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
 {
@@ -157,18 +156,51 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 
     // Sort distances.
     std::sort(ix_dist.begin(), ix_dist.end(), [](auto a, auto b){return std::get<1>(a) < std::get<1>(b);});
+    double q3 = get<1>(*(ix_dist.end() - ix_dist.size()/4));
+    double q1 = get<1>(*(ix_dist.begin() + ix_dist.size()/4));
+    double irq = q3-q1;
+
+    auto hi = upper_bound(ix_dist.begin(), ix_dist.end(), 1.5*irq + q3,
+    [](auto a, auto b){return a < get<1>(b); })-1;
+
+    auto lo = upper_bound(ix_dist.begin(), ix_dist.end(), q1 - 1.5*irq,
+    [](auto a, auto b){return a < get<1>(b); });
 
     // Save only matches, which keypoints distances are in [Q1;Q3]
-    for (auto it = ix_dist.begin() + ix_dist.size()/4; it < (ix_dist.end() - ix_dist.size()/4); it++)
-        boundingBox.kptMatches.push_back(kptMatches[std::get<0>(*it)]);
+    for (auto it = lo; it < hi; it++)
+        boundingBox.kptMatches.push_back(kptMatches[get<0>(*it)]);
 }
-
 
 // Compute time-to-collision (TTC) based on keypoint correspondences in successive images
 void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr,
                       std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
 {
-    // ...
+    // 1. Compute velocity.
+    // 1.1. Compute average distance changes between corresponding keypoints of current and previous frames.
+    double avg_dist = std::accumulate(
+        kptMatches.begin(), kptMatches.end(), 0.0,
+        [&](auto a, auto v){
+            return a + sqrt(pow(kptsCurr[v.trainIdx].pt.x-kptsPrev[v.queryIdx].pt.x, 2.0)
+            + pow(kptsCurr[v.trainIdx].pt.y-kptsPrev[v.queryIdx].pt.y, 2.0));
+        }
+    )/kptMatches.size();
+
+
+    double d_t = 1/frameRate; // Get delta from frame rate.
+
+    // 1.2. Compute velocity.
+    double v = (avg_dist)/d_t;
+
+    // 2. Compute distances to objects on current frame.
+
+    avg_dist = std::accumulate(
+        kptMatches.begin(), kptMatches.end(), 0.0,
+        [&](auto a, auto v){
+            return a + sqrt(pow(kptsCurr[v.trainIdx].pt.x, 2.0) + pow(kptsCurr[v.trainIdx].pt.y, 2.0));
+        }
+    )/kptMatches.size();
+
+    TTC = avg_dist/v;
 }
 
 
@@ -232,7 +264,7 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
     for (auto pr = freq.begin(); pr != freq.end(); pr++){
         auto it = std::max_element(std::begin(pr->second), std::end(pr->second), [](auto a, auto b){return a.second.size() < b.second.size();});
         bbBestMatches[pr->first] = it->first;
-        currFrame.boundingBoxes[it->first].kptMatches = it->second;
+        //currFrame.boundingBoxes[it->first].kptMatches = it->second;
         for (auto m: it->second){
             currFrame.boundingBoxes[it->first].keypoints.push_back(currFrame.keypoints[m.trainIdx]);
         }
