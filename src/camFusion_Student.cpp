@@ -217,16 +217,22 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
         std::back_inserter(d_dist),
         [](auto c, auto p){return sqrt(pow(c.x-p.x, 2)+pow(c.y-p.y, 2)+pow(c.z-p.z, 2)); });
 
-    // 1.2 Average over distance changes which are between Q1 and Q3.
+    // 1.2 Average over distance changes which are compliant to Interquartile Rule.
     std::sort(d_dist.begin(), d_dist.end());
-    double avg_dist = std::accumulate(d_dist.begin() + d_dist.size()/4, d_dist.end() - d_dist.size()/4, 0.0);
-    avg_dist /= (d_dist.size()/2);
+
+    double q3 = *(d_dist.end() - d_dist.size()/4);
+    double q1 = *(d_dist.begin() + d_dist.size()/4);
+    double irq = q3-q1;
+
+    auto hi = upper_bound(d_dist.begin(), d_dist.end(), 1.5*irq + q3)-1;
+    auto lo = upper_bound(d_dist.begin(), d_dist.end(), q1 - 1.5*irq);
+    double avg_dist = std::accumulate(lo, hi, 0.0)/distance(lo, hi);
 
     double d_t = 1/frameRate; // Get delta from frame rate.
 
     double v = (avg_dist)/d_t; // Compute velocity.
 
-    // Take into account distances which are between Q1 and Q3.
+    // Take into account distances which are compliant to Interquartile Rule.
     // 2.1. Compute distances to objects on current frame.
     d_dist.clear();
     std::transform(
@@ -235,10 +241,14 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
         std::back_inserter(d_dist),
         [](auto a){return sqrt(pow(a.x, 2) + pow(a.y, 2) + pow(a.z, 2));}
     );
-    // 2.2. Average over distances which are between Q1 and Q3.
+    // 2.2. Average over distances which are compliant to Interquartile Rule.
     std::sort(d_dist.begin(), d_dist.end());
-    avg_dist = std::accumulate(d_dist.begin() + d_dist.size()/4, d_dist.end() - d_dist.size()/4, 0.0);
-    avg_dist /= (d_dist.size()/2);
+    q3 = *(d_dist.end() - d_dist.size()/4);
+    q1 = *(d_dist.begin() + d_dist.size()/4);
+    irq = q3-q1;
+    hi = upper_bound(d_dist.begin(), d_dist.end(), 1.5*irq + q3)-1;
+    lo = upper_bound(d_dist.begin(), d_dist.end(), q1 - 1.5*irq);
+    avg_dist = std::accumulate(lo, hi, 0.0)/distance(lo, hi);
     TTC = avg_dist/v;
 }
 
