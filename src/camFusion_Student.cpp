@@ -139,7 +139,8 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
 {
     // Indices of keypoints and distances to corresponding previous ones.
-    std::vector<std::tuple<int, double>> ix_dist;
+    using IxDist = vector<tuple<int, double>>;
+    IxDist ix_dist;
 
     // Remember keypoints which are inside roi.
     for (int m = 0; m < kptMatches.size(); m++){
@@ -156,15 +157,56 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 
     // Sort distances.
     std::sort(ix_dist.begin(), ix_dist.end(), [](auto a, auto b){return std::get<1>(a) < std::get<1>(b);});
-    double q3 = get<1>(*(ix_dist.end() - ix_dist.size()/4));
-    double q1 = get<1>(*(ix_dist.begin() + ix_dist.size()/4));
-    double irq = q3-q1;
 
-    auto hi = upper_bound(ix_dist.begin(), ix_dist.end(), 1.5*irq + q3,
-    [](auto a, auto b){return a < get<1>(b); })-1;
+    // Find most frequent distance range with help of histogram.
+    double d = (get<1>(*(ix_dist.end()-1)) - get<1>(*ix_dist.begin()))/10; // Historgram step.
+    double s = d;
+    auto prev = ix_dist.begin();
+    vector<tuple<IxDist::iterator, IxDist::iterator>> hist;
+    for (int i = 0; i < 10; i++){
+        auto x = upper_bound(ix_dist.begin(), ix_dist.end(), s, [](auto a, auto b){return a < get<1>(b); });
+        hist.push_back(make_tuple(prev, x));
+        s += d;
+        prev = x;
+    }
 
-    auto lo = upper_bound(ix_dist.begin(), ix_dist.end(), q1 - 1.5*irq,
-    [](auto a, auto b){return a < get<1>(b); });
+    // Get bin with maximum number of elements.
+    auto it = max_element(hist.begin(), hist.end(),
+    [](auto a, auto b){return distance(get<0>(a),get<1>(a)) < distance(get<0>(b),get<1>(b));});
+
+    auto it_dec = it;
+    auto it_inc = it;
+
+    int total_el = distance(get<0>(*it),get<1>(*it));
+
+    // Regards left-right bins.
+    // Search until sum of bins reaches half of elements number.
+    while (total_el < ix_dist.size()/2){
+        auto a=it, b=it;
+        if (*it_dec > *it_inc){
+            a = it_dec;
+            if (it_dec > hist.begin())
+                it_dec--;
+        }
+        else if (*it_dec < *it_inc){
+            b = it_inc;
+            if (it < hist.end()-1)
+                it_inc++;
+        }
+        else {
+            a = it_dec;
+            b = it_dec;
+            if (it_dec > hist.begin())
+                it_dec--;
+            if (it < hist.end()-1)
+                it_inc++;
+        };
+        total_el = accumulate(it_dec, it_inc+1, 0.0, [](auto a, auto v){return a + distance(get<0>(v),get<1>(v));});
+    }
+
+    // Take into account most popular values.
+    auto lo = get<0>(*it_dec);
+    auto hi = get<1>(*it_inc);
 
     // Save only matches, which keypoints distances are in [Q1;Q3]
     for (auto it = lo; it < hi; it++)
@@ -177,14 +219,26 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 {
     // 1. Compute velocity.
     // 1.1. Compute average distance changes between corresponding keypoints of current and previous frames.
-    double avg_dist = std::accumulate(
-        kptMatches.begin(), kptMatches.end(), 0.0,
-        [&](auto a, auto v){
-            return a + sqrt(pow(kptsCurr[v.trainIdx].pt.x-kptsPrev[v.queryIdx].pt.x, 2.0)
-            + pow(kptsCurr[v.trainIdx].pt.y-kptsPrev[v.queryIdx].pt.y, 2.0));
-        }
-    )/kptMatches.size();
 
+    std::vector<double> d_dist;
+    std::transform(
+        kptMatches.begin(),
+        kptMatches.end(),
+        std::back_inserter(d_dist),
+        [&](auto a){return
+        sqrt(pow(kptsCurr[a.trainIdx].pt.x - kptsPrev[a.queryIdx].pt.x, 2) +
+        pow(kptsCurr[a.trainIdx].pt.y - kptsPrev[a.queryIdx].pt.y, 2)); }
+        );
+
+    // 1.2 Average over distance changes which are compliant to Interquartile Rule.
+    std::sort(d_dist.begin(), d_dist.end());
+    double q3 = *(d_dist.end() - d_dist.size()/4);
+    double q1 = *(d_dist.begin() + d_dist.size()/4);
+    double irq = q3-q1;
+
+    auto hi = upper_bound(d_dist.begin(), d_dist.end(), 1.5*irq + q3)-1;
+    auto lo = upper_bound(d_dist.begin(), d_dist.end(), q1 - 1.5*irq);
+    double avg_dist = std::accumulate(lo, hi, 0.0)/distance(lo, hi);
 
     double d_t = 1/frameRate; // Get delta from frame rate.
 
@@ -215,7 +269,7 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
         lidarPointsCurr.end(),
         lidarPointsPrev.begin(),
         std::back_inserter(d_dist),
-        [](auto c, auto p){return sqrt(pow(c.x-p.x, 2)+pow(c.y-p.y, 2)+pow(c.z-p.z, 2)); });
+        [](auto c, auto p){return sqrt(pow(c.x-p.x, 2)+pow(c.y-p.y, 2)); });
 
     // 1.2 Average over distance changes which are compliant to Interquartile Rule.
     std::sort(d_dist.begin(), d_dist.end());
@@ -239,7 +293,7 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
         lidarPointsCurr.begin(),
         lidarPointsCurr.end(),
         std::back_inserter(d_dist),
-        [](auto a){return sqrt(pow(a.x, 2) + pow(a.y, 2) + pow(a.z, 2));}
+        [](auto a){return sqrt(pow(a.x, 2) + pow(a.y, 2));}
     );
     // 2.2. Average over distances which are compliant to Interquartile Rule.
     std::sort(d_dist.begin(), d_dist.end());
@@ -252,12 +306,32 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
     TTC = avg_dist/v;
 }
 
-
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
-    std::map<int, std::map<int, std::vector<cv::DMatch>>> freq;
+    map<int, map<int, vector<cv::DMatch>>> freq;
+    std::vector<cv::DMatch> matches_un(matches);
 
-    for (auto m: matches){
+    // Get rid of keypoints which are in the same bounding boxes.
+    vector<cv::DMatch>::iterator it = matches_un.begin();
+
+    while(it != matches_un.end()) {
+        int n = count_if(
+            prevFrame.boundingBoxes.begin(),
+            prevFrame.boundingBoxes.end(),
+            [&](auto a){return a.roi.contains(prevFrame.keypoints[it->queryIdx].pt);});
+
+        int m = count_if(
+            currFrame.boundingBoxes.begin(),
+            currFrame.boundingBoxes.end(),
+            [&](auto a){return a.roi.contains(currFrame.keypoints[it->trainIdx].pt);});
+
+        if ((n>1)||(m>1))
+            it = matches_un.erase(it);
+        else
+            it++;
+    }
+
+    for (auto m: matches_un){
         for (auto bb_prev: prevFrame.boundingBoxes){
             // Check if train point of match is inside current bounding box of previous frame.
             if (bb_prev.roi.contains(prevFrame.keypoints[m.queryIdx].pt)){
@@ -271,12 +345,33 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
         }
     }
 
-    for (auto pr = freq.begin(); pr != freq.end(); pr++){
-        auto it = std::max_element(std::begin(pr->second), std::end(pr->second), [](auto a, auto b){return a.second.size() < b.second.size();});
-        bbBestMatches[pr->first] = it->first;
-        //currFrame.boundingBoxes[it->first].kptMatches = it->second;
-        for (auto m: it->second){
-            currFrame.boundingBoxes[it->first].keypoints.push_back(currFrame.keypoints[m.trainIdx]);
-        }
+    vector<tuple<int, int, vector<cv::DMatch>>> freq_v;
+    for (auto i: freq)
+        for (auto j: i.second)
+            freq_v.push_back(make_tuple(i.first, j.first, j.second));
+
+    sort(freq_v.begin(), freq_v.end(), [](auto a, auto b){return get<2>(a).size() > get<2>(b).size();});
+
+    auto freq_v_it = freq_v.begin();
+    while (freq_v_it != freq_v.end()){
+        int i = get<0>(*freq_v_it);
+        int j = get<1>(*freq_v_it);
+
+        while(true) {
+            auto f = find_if(freq_v_it+1, freq_v.end(),
+            [&i,&j](auto a){return (get<0>(a) == i) || (get<1>(a) == j);});
+            if (f == freq_v.end()) {
+                freq_v_it++;
+                break;
+            };
+            freq_v.erase(f);
+        };
+    }
+
+    for (auto f: freq_v){
+        bbBestMatches[get<0>(f)] = get<1>(f);
+        //currFrame.boundingBoxes[get<1>(f)].kptMatches = get<2>(f);
+        //for (auto m: get<2>(f))
+        //    currFrame.boundingBoxes[get<1>(f)].keypoints.push_back(currFrame.keypoints[m.trainIdx]);
     }
 }
