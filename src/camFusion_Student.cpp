@@ -234,9 +234,8 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
 
     //2. Get rid of outliers.
     sort(ratios.begin(), ratios.end());
-
+    // Decide wheather object is approaching or moving away.
     auto i = lower_bound(ratios.begin(), ratios.end(), 1.0);
-    cout << distance(ratios.begin(), i) << endl;
     vector<float>::iterator it_be, it_en;
     if (distance(ratios.begin(), i) >= ratios.size()/2){
         it_be = ratios.begin();
