@@ -13,7 +13,7 @@ using namespace std;
 
 
 // Create groups of Lidar points whose projection into the camera falls into the same bounding box
-void clusterLidarWithROI(std::vector<BoundingBox> &boundingBoxes, std::vector<LidarPoint> &lidarPoints, float shrinkFactor, cv::Mat &P_rect_xx, cv::Mat &R_rect_xx, cv::Mat &RT)
+void clusterLidarWithROI(vector<BoundingBox> &boundingBoxes, vector<LidarPoint> &lidarPoints, float shrinkFactor, cv::Mat &P_rect_xx, cv::Mat &R_rect_xx, cv::Mat &RT)
 {
     // loop over all Lidar points and associate them to a 2D bounding box
     cv::Mat X(4, 1, cv::DataType<double>::type);
@@ -67,7 +67,7 @@ void clusterLidarWithROI(std::vector<BoundingBox> &boundingBoxes, std::vector<Li
 * However, you can make this function work for other sizes too.
 * For instance, to use a 1000x1000 size, adjusting the text positions by dividing them by 2.
 */
-void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, cv::Size imageSize, bool bWait)
+void show3DObjects(vector<BoundingBox> &boundingBoxes, cv::Size worldSize, cv::Size imageSize, bool bWait)
 {
     // create topview image
     cv::Mat topviewImg(imageSize, CV_8UC3, cv::Scalar(255, 255, 255));
@@ -136,7 +136,7 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 }
 
 // associate a given bounding box with the keypoints it contains
-void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
+void clusterKptMatchesWithROI(BoundingBox &boundingBox, vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kptsCurr, vector<cv::DMatch> &kptMatches)
 {
     // Indices of keypoints and distances to corresponding previous ones.
     using IxDist = vector<tuple<int, double>>;
@@ -146,7 +146,7 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
     for (int m = 0; m < kptMatches.size(); m++){
         if (boundingBox.roi.contains(kptsCurr[kptMatches[m].trainIdx].pt)){
             ix_dist.push_back(
-                std::make_tuple(m,
+                make_tuple(m,
                 sqrt(
                 pow(kptsCurr[kptMatches[m].trainIdx].pt.x-kptsPrev[kptMatches[m].queryIdx].pt.x, 2.0) +
                 pow(kptsCurr[kptMatches[m].trainIdx].pt.y-kptsPrev[kptMatches[m].queryIdx].pt.y, 2.0)
@@ -156,7 +156,7 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
     }
 
     // Sort distances.
-    std::sort(ix_dist.begin(), ix_dist.end(), [](auto a, auto b){return std::get<1>(a) < std::get<1>(b);});
+    sort(ix_dist.begin(), ix_dist.end(), [](auto a, auto b){return get<1>(a) < get<1>(b);});
 
     // Find most frequent distance range with help of histogram.
     double d = (get<1>(*(ix_dist.end()-1)) - get<1>(*ix_dist.begin()))/10; // Historgram step.
@@ -214,31 +214,31 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 }
 
 // Compute time-to-collision (TTC) based on keypoint correspondences in successive images
-void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr,
-                      std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
+void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kptsCurr,
+                      vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
 {
     // 1. Compute velocity.
     // 1.1. Compute average distance changes between corresponding keypoints of current and previous frames.
 
-    std::vector<double> d_dist;
-    std::transform(
+    vector<double> d_dist;
+    transform(
         kptMatches.begin(),
         kptMatches.end(),
-        std::back_inserter(d_dist),
+        back_inserter(d_dist),
         [&](auto a){return
         sqrt(pow(kptsCurr[a.trainIdx].pt.x - kptsPrev[a.queryIdx].pt.x, 2) +
         pow(kptsCurr[a.trainIdx].pt.y - kptsPrev[a.queryIdx].pt.y, 2)); }
         );
 
     // 1.2 Average over distance changes which are compliant to Interquartile Rule.
-    std::sort(d_dist.begin(), d_dist.end());
+    sort(d_dist.begin(), d_dist.end());
     double q3 = *(d_dist.end() - d_dist.size()/4);
     double q1 = *(d_dist.begin() + d_dist.size()/4);
     double irq = q3-q1;
 
     auto hi = upper_bound(d_dist.begin(), d_dist.end(), 1.5*irq + q3)-1;
     auto lo = upper_bound(d_dist.begin(), d_dist.end(), q1 - 1.5*irq);
-    double avg_dist = std::accumulate(lo, hi, 0.0)/distance(lo, hi);
+    double avg_dist = accumulate(lo, hi, 0.0)/distance(lo, hi);
 
     double d_t = 1/frameRate; // Get delta from frame rate.
 
@@ -247,7 +247,7 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 
     // 2. Compute distances to objects on current frame.
 
-    avg_dist = std::accumulate(
+    avg_dist = accumulate(
         kptMatches.begin(), kptMatches.end(), 0.0,
         [&](auto a, auto v){
             return a + sqrt(pow(kptsCurr[v.trainIdx].pt.x, 2.0) + pow(kptsCurr[v.trainIdx].pt.y, 2.0));
@@ -258,21 +258,21 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 }
 
 
-void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
-                     std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
+void computeTTCLidar(vector<LidarPoint> &lidarPointsPrev,
+                     vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
 {
     // 1. Compute velocity.
     // 1.1. Compute distance changes between corresponding lidar points of current and previous frames.
-    std::vector<double> d_dist;
-    std::transform(
+    vector<double> d_dist;
+    transform(
         lidarPointsCurr.begin(),
         lidarPointsCurr.end(),
         lidarPointsPrev.begin(),
-        std::back_inserter(d_dist),
+        back_inserter(d_dist),
         [](auto c, auto p){return sqrt(pow(c.x-p.x, 2)+pow(c.y-p.y, 2)); });
 
     // 1.2 Average over distance changes which are compliant to Interquartile Rule.
-    std::sort(d_dist.begin(), d_dist.end());
+    sort(d_dist.begin(), d_dist.end());
 
     double q3 = *(d_dist.end() - d_dist.size()/4);
     double q1 = *(d_dist.begin() + d_dist.size()/4);
@@ -280,7 +280,7 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 
     auto hi = upper_bound(d_dist.begin(), d_dist.end(), 1.5*irq + q3)-1;
     auto lo = upper_bound(d_dist.begin(), d_dist.end(), q1 - 1.5*irq);
-    double avg_dist = std::accumulate(lo, hi, 0.0)/distance(lo, hi);
+    double avg_dist = accumulate(lo, hi, 0.0)/distance(lo, hi);
 
     double d_t = 1/frameRate; // Get delta from frame rate.
 
@@ -289,27 +289,27 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
     // Take into account distances which are compliant to Interquartile Rule.
     // 2.1. Compute distances to objects on current frame.
     d_dist.clear();
-    std::transform(
+    transform(
         lidarPointsCurr.begin(),
         lidarPointsCurr.end(),
-        std::back_inserter(d_dist),
+        back_inserter(d_dist),
         [](auto a){return sqrt(pow(a.x, 2) + pow(a.y, 2));}
     );
     // 2.2. Average over distances which are compliant to Interquartile Rule.
-    std::sort(d_dist.begin(), d_dist.end());
+    sort(d_dist.begin(), d_dist.end());
     q3 = *(d_dist.end() - d_dist.size()/4);
     q1 = *(d_dist.begin() + d_dist.size()/4);
     irq = q3-q1;
     hi = upper_bound(d_dist.begin(), d_dist.end(), 1.5*irq + q3)-1;
     lo = upper_bound(d_dist.begin(), d_dist.end(), q1 - 1.5*irq);
-    avg_dist = std::accumulate(lo, hi, 0.0)/distance(lo, hi);
+    avg_dist = accumulate(lo, hi, 0.0)/distance(lo, hi);
     TTC = avg_dist/v;
 }
 
-void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
+void matchBoundingBoxes(vector<cv::DMatch> &matches, map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
     map<int, map<int, vector<cv::DMatch>>> freq;
-    std::vector<cv::DMatch> matches_un(matches);
+    vector<cv::DMatch> matches_un(matches);
 
     // Get rid of keypoints which are in the same bounding boxes.
     vector<cv::DMatch>::iterator it = matches_un.begin();
