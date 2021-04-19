@@ -217,57 +217,52 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, vector<cv::KeyPoint> &kp
 void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kptsCurr,
                       vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
 {
-    // 1. Compute velocity.
-    // 1.1. Compute average distance changes between corresponding keypoints of current and previous frames.
+    // 1. Compute ratios of distance between every point of current and previous frames.
+    vector<float> ratios; // Ratios of distances between points of previous and current frames.
+    for (int i = 0; i < kptMatches.size(); i++){
+        cv::Point2f kp_prev_i = kptsPrev[kptMatches[i].queryIdx].pt;
+        cv::Point2f kp_curr_i = kptsCurr[kptMatches[i].trainIdx].pt;
+        for (int j = i+1; j < kptMatches.size(); j++){
+            cv::Point2f kp_prev_j = kptsPrev[kptMatches[j].queryIdx].pt;
+            cv::Point2f kp_curr_j = kptsCurr[kptMatches[j].trainIdx].pt;
+            float d_prev = cv::norm(kp_prev_i-kp_prev_j);
+            float d_curr = cv::norm(kp_curr_i-kp_curr_j);
+            if (d_curr> numeric_limits<float>::epsilon())
+                ratios.push_back(d_prev/d_curr);
+        }
+    }
 
-    vector<double> d_dist;
-    transform(
-        kptMatches.begin(),
-        kptMatches.end(),
-        back_inserter(d_dist),
-        [&](auto a){return
-        sqrt(pow(kptsCurr[a.trainIdx].pt.x - kptsPrev[a.queryIdx].pt.x, 2) +
-        pow(kptsCurr[a.trainIdx].pt.y - kptsPrev[a.queryIdx].pt.y, 2)); }
-        );
+    //2. Get rid of outliers.
+    sort(ratios.begin(), ratios.end());
 
-    // 1.2 Average over distance changes which are compliant to Interquartile Rule.
-    sort(d_dist.begin(), d_dist.end());
-    double q3 = *(d_dist.end() - d_dist.size()/4);
-    double q1 = *(d_dist.begin() + d_dist.size()/4);
+    auto i = lower_bound(ratios.begin(), ratios.end(), 1.0);
+    cout << distance(ratios.begin(), i) << endl;
+    vector<float>::iterator it_be, it_en;
+    if (distance(ratios.begin(), i) >= ratios.size()/2){
+        it_be = ratios.begin();
+        it_en = i;
+    } else {
+        it_be = i;
+        it_en = ratios.end();
+    }
+
+    double q3 = *(it_en - distance(it_be, it_en)/4);
+    double q1 = *(it_be + distance(it_be, it_en)/4);
     double irq = q3-q1;
 
-    auto hi = upper_bound(d_dist.begin(), d_dist.end(), 1.5*irq + q3)-1;
-    auto lo = upper_bound(d_dist.begin(), d_dist.end(), q1 - 1.5*irq);
-    double avg_dist = accumulate(lo, hi, 0.0)/distance(lo, hi);
+    // Average over ratios  which are compliant to Interquartile Rule.
+    auto hi = upper_bound(it_be, it_en, 1.5*irq + q3)-1;
+    auto lo = upper_bound(it_be, it_en, q1 - 1.5*irq);
+    double avg_ratio = accumulate(lo, hi, 0.0)/distance(lo, hi);
 
-    double d_t = 1/frameRate; // Get delta from frame rate.
+    // r = s1/s2 - ratio between distance of 2 points of previous frame and distance of 2 points of current frame.
+    // r = d1/d2 - d1 - distance to object on previous frame, d2 - distance to object on current frame.
+    // TTC = d2/v, v=(d2-d1)/d_t.
+    // TTC = d2*dt/(d2-d1) = dt/(1-d1/d2) = dt / (1-r)
 
-    // 1.2. Compute velocity.
-    double v = (avg_dist)/d_t;
+    double d_t = 1/frameRate; // Get time delta from frame rate.
 
-    // 2. Compute distances to objects on current frame.
-    for (auto m: kptMatches){
-        cout << kptsPrev[m.trainIdx].pt.x << " " << kptsPrev[m.trainIdx].pt.y << endl;
-    }
-    d_dist.clear();
-    transform(
-        kptMatches.begin(),
-        kptMatches.end(),
-        back_inserter(d_dist),
-        [&](auto a){return
-        sqrt(pow(kptsCurr[a.trainIdx].pt.x, 2) + pow(kptsCurr[a.trainIdx].pt.y, 2)); }
-        );
-
-    // 2.2. Average over distances which are compliant to Interquartile Rule.
-    sort(d_dist.begin(), d_dist.end());
-    q3 = *(d_dist.end() - d_dist.size()/4);
-    q1 = *(d_dist.begin() + d_dist.size()/4);
-    irq = q3-q1;
-    hi = upper_bound(d_dist.begin(), d_dist.end(), 1.5*irq + q3)-1;
-    lo = upper_bound(d_dist.begin(), d_dist.end(), q1 - 1.5*irq);
-    avg_dist = accumulate(lo, hi, 0.0)/distance(lo, hi);
-
-    TTC = avg_dist/v;
+    TTC = d_t/(1-avg_ratio);
 }
 
 
