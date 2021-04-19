@@ -247,12 +247,23 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
 
     // 2. Compute distances to objects on current frame.
 
-    avg_dist = accumulate(
-        kptMatches.begin(), kptMatches.end(), 0.0,
-        [&](auto a, auto v){
-            return a + sqrt(pow(kptsCurr[v.trainIdx].pt.x, 2.0) + pow(kptsCurr[v.trainIdx].pt.y, 2.0));
-        }
-    )/kptMatches.size();
+    d_dist.clear();
+    transform(
+        kptMatches.begin(),
+        kptMatches.end(),
+        back_inserter(d_dist),
+        [&](auto a){return
+        sqrt(pow(kptsCurr[a.trainIdx].pt.x, 2) + pow(kptsCurr[a.trainIdx].pt.y, 2)); }
+        );
+
+    // 2.2. Average over distances which are compliant to Interquartile Rule.
+    sort(d_dist.begin(), d_dist.end());
+    q3 = *(d_dist.end() - d_dist.size()/4);
+    q1 = *(d_dist.begin() + d_dist.size()/4);
+    irq = q3-q1;
+    hi = upper_bound(d_dist.begin(), d_dist.end(), 1.5*irq + q3)-1;
+    lo = upper_bound(d_dist.begin(), d_dist.end(), q1 - 1.5*irq);
+    avg_dist = accumulate(lo, hi, 0.0)/distance(lo, hi);
 
     TTC = avg_dist/v;
 }
