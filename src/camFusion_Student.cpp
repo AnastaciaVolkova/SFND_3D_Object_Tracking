@@ -246,7 +246,9 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
     double v = (avg_dist)/d_t;
 
     // 2. Compute distances to objects on current frame.
-
+    for (auto m: kptMatches){
+        cout << kptsPrev[m.trainIdx].pt.x << " " << kptsPrev[m.trainIdx].pt.y << endl;
+    }
     d_dist.clear();
     transform(
         kptMatches.begin(),
@@ -275,12 +277,10 @@ void computeTTCLidar(vector<LidarPoint> &lidarPointsPrev,
     // 1. Compute velocity.
     // 1.1. Compute distance changes between corresponding lidar points of current and previous frames.
     vector<double> d_dist;
-    transform(
-        lidarPointsCurr.begin(),
-        lidarPointsCurr.end(),
-        lidarPointsPrev.begin(),
-        back_inserter(d_dist),
-        [](auto c, auto p){return sqrt(pow(c.x-p.x, 2)+pow(c.y-p.y, 2)); });
+    for (int i = 0; i < min(lidarPointsCurr.size(), lidarPointsPrev.size()); i++)
+        d_dist.push_back(sqrt(
+            pow(lidarPointsCurr[i].x-lidarPointsPrev[i].x, 2)+
+            pow(lidarPointsCurr[i].y-lidarPointsPrev[i].y, 2)));
 
     // 1.2 Average over distance changes which are compliant to Interquartile Rule.
     sort(d_dist.begin(), d_dist.end());
