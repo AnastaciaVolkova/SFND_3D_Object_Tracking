@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <iomanip>
 #include <algorithm>
 #include <numeric>
 #include <tuple>
@@ -125,6 +126,15 @@ void show3DObjects(vector<BoundingBox> &boundingBoxes, cv::Size worldSize, cv::S
     }
 
     // display image
+#if defined(SAVE)
+{
+        static int frame_num = 0;
+        ostringstream oss;
+        oss << "./out/3d_objects_" << setfill('0') << setw(2) << frame_num << ".png";
+        cv::imwrite(oss.str(), topviewImg);
+        frame_num++;
+}
+#else
     string windowName = "3D Objects";
     cv::namedWindow(windowName, 1);
     cv::imshow(windowName, topviewImg);
@@ -133,6 +143,7 @@ void show3DObjects(vector<BoundingBox> &boundingBoxes, cv::Size worldSize, cv::S
     {
         cv::waitKey(0); // wait for key to be pressed
     }
+#endif
 }
 
 // associate a given bounding box with the keypoints it contains
@@ -282,6 +293,9 @@ void computeTTCLidar(vector<LidarPoint> &lidarPointsPrev,
     double q3 = *(d_dist.end() - d_dist.size()/4);
     double q1 = *(d_dist.begin() + d_dist.size()/4);
     double irq = q3-q1;
+    #if defined(SAVE)
+    cout << "irq=" << irq << endl;
+    #endif
 
     auto hi = upper_bound(d_dist.begin(), d_dist.end(), 1.5*irq + q3)-1;
     auto lo = upper_bound(d_dist.begin(), d_dist.end(), q1 - 1.5*irq);
