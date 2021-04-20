@@ -68,7 +68,7 @@ void clusterLidarWithROI(vector<BoundingBox> &boundingBoxes, vector<LidarPoint> 
 * However, you can make this function work for other sizes too.
 * For instance, to use a 1000x1000 size, adjusting the text positions by dividing them by 2.
 */
-void show3DObjects(vector<BoundingBox> &boundingBoxes, cv::Size worldSize, cv::Size imageSize, bool bWait)
+void show3DObjects(vector<BoundingBox> &boundingBoxes, cv::Size worldSize, cv::Size imageSize, const string& save_dir, bool bWait)
 {
     // create topview image
     cv::Mat topviewImg(imageSize, CV_8UC3, cv::Scalar(255, 255, 255));
@@ -130,7 +130,7 @@ void show3DObjects(vector<BoundingBox> &boundingBoxes, cv::Size worldSize, cv::S
 {
         static int frame_num = 0;
         ostringstream oss;
-        oss << "./out/3d_objects_" << setfill('0') << setw(2) << frame_num << ".png";
+        oss << save_dir << "/3d_objects_" << setfill('0') << setw(2) << frame_num << ".png";
         cv::imwrite(oss.str(), topviewImg);
         frame_num++;
 }

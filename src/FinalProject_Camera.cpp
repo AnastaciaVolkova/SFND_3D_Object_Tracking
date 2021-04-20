@@ -190,7 +190,7 @@ int main(int argc, const char *argv[])
         float confThreshold = 0.2;
         float nmsThreshold = 0.4;
         detectObjects((dataBuffer.end() - 1)->cameraImg, (dataBuffer.end() - 1)->boundingBoxes, confThreshold, nmsThreshold,
-                      yoloBasePath, yoloClassesFile, yoloModelConfiguration, yoloModelWeights, bVis);
+                      yoloBasePath, yoloClassesFile, yoloModelConfiguration, yoloModelWeights, save_dir, bVis);
 
         cout << "#2 : DETECT & CLASSIFY OBJECTS done" << endl;
 
@@ -220,7 +220,7 @@ int main(int argc, const char *argv[])
         bVis = true;
         if(bVis)
         {
-            show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(2000, 2000), true);
+            show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(2000, 2000), save_dir, true);
         }
         bVis = false;
 
@@ -364,7 +364,7 @@ int main(int argc, const char *argv[])
                         {
                                 static int frame_num = 1;
                                 ostringstream oss;
-                                oss << "./out/final_results_" << setfill('0') << setw(2) << frame_num << ".png";
+                                oss << save_dir << "/final_results_" << setfill('0') << setw(2) << frame_num << ".png";
                                 cv::imwrite(oss.str(), visImg);
                                 frame_num++;
                         }
