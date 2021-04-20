@@ -5,8 +5,10 @@
 #include <sstream>
 #include <iomanip>
 #include <vector>
+#include <list>
 #include <cmath>
 #include <limits>
+#include <string>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -21,6 +23,72 @@
 #include "camFusion.hpp"
 
 using namespace std;
+
+template<class T>
+class CircleBuffer : public list<T>{
+public:
+    class iterator{
+    private:
+        typename list<T>::iterator it_;
+    public:
+        iterator(typename list<T>::iterator i){it_ = i;};
+        iterator& operator-(int v){
+            for (int i = 0; i < v; i++ )
+                it_--;
+            return *this;
+        };
+        bool operator!=(const iterator& it){
+            return it_ != it.it_;
+        };
+        T& operator*(){return *it_;};
+        typename list<T>::iterator operator->(){return it_;};
+    };
+    void push_back(const T& x){
+        if (list<T>::size() == data_buffer_size_){
+            list<T>::erase(list<T>::begin());
+        }
+        list<T>::push_back(x);
+    };
+    CircleBuffer(int dataBufferSize):data_buffer_size_(dataBufferSize){};
+    iterator begin(){return iterator(list<T>::begin());};
+    iterator end(){return iterator(list<T>::end());};
+    private:
+    int data_buffer_size_;
+};
+
+bool ReadCommandLine(int argc, const char* argv[], string& detectorType, string& descriptorType, string& selectorType, string& matcherType, bool& bVis){
+    int i = 1;
+    string command_line_help = "-det detectorType -des descriptorType -sel selectorType -mat matcherType -vis 0|1";
+    command_line_help += "\ndetectorType: SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT (default SHITOMASI)";
+    command_line_help += "\ndescriptorType: BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT (default BRISK)";
+    command_line_help += "\nmatcherType: MAT_BF, MAT_FLANN (default MAT_BF)";
+    command_line_help += "\nselectorType: SEL_NN, SEL_KNN (default SEL_KNN)";
+
+    if ( (argc == 2) && (std::string(argv[1]) == std::string("-h") ) ){
+        std::cout << command_line_help << std::endl;
+        return -1;
+    }
+
+    while(i < argc){
+        std::string us_in = string(argv[i++]);
+        if  (us_in == "-det")
+            detectorType = argv[i++];
+        else if (us_in == "-des")
+            descriptorType = argv[i++];
+        else if (us_in == "-sel")
+            selectorType = argv[i++];
+        else if (us_in == "-mat")
+            matcherType = argv[i++];
+        else if (us_in == "-vis")
+            bVis = strcmp(argv[i++], "0")==0? false: true;
+        else{
+            std::cout << "Invalid command line" << std::endl;
+            std::cout << command_line_help << std::endl;
+            return -1;
+        }
+    }
+    return 0;
+};
 
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[])
@@ -71,8 +139,20 @@ int main(int argc, const char *argv[])
     // misc
     double sensorFrameRate = 10.0 / imgStepWidth; // frames per second for Lidar and camera
     int dataBufferSize = 2;       // no. of images which are held in memory (ring buffer) at the same time
-    vector<DataFrame> dataBuffer; // list of data frames which are held in memory at the same time
+    CircleBuffer<DataFrame> dataBuffer(dataBufferSize); // list of data frames which are held in memory at the same time
     bool bVis = true;            // visualize results
+
+    string detectorType("SHITOMASI");
+    string descriptorType("BRISK");
+    string matcherType ("MAT_BF");
+    string selectorType("SEL_KNN");
+
+    // detectorType SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
+    // descriptorType BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
+    // matcherType MAT_BF, MAT_FLANN
+    // selectorType SEL_NN, SEL_KNN
+    if (ReadCommandLine(argc, argv, detectorType, descriptorType, selectorType, matcherType, bVis))
+        return -1;
 
     /* MAIN LOOP OVER ALL IMAGES */
 
@@ -104,7 +184,6 @@ int main(int argc, const char *argv[])
                       yoloBasePath, yoloClassesFile, yoloModelConfiguration, yoloModelWeights, bVis);
 
         cout << "#2 : DETECT & CLASSIFY OBJECTS done" << endl;
-
 
         /* CROP LIDAR POINTS */
 
@@ -147,16 +226,13 @@ int main(int argc, const char *argv[])
 
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
-        string detectorType = "SHITOMASI";
 
         if (detectorType.compare("SHITOMASI") == 0)
-        {
-            detKeypointsShiTomasi(keypoints, imgGray, false);
-        }
+            detKeypointsShiTomasi(keypoints, imgGray, bVis);
+        else if (detectorType.compare("HARRIS") == 0)
+            detKeypointsHarris(keypoints, imgGray, bVis);
         else
-        {
-            //...
-        }
+            detKeypointsModern(keypoints, imgGray, detectorType, bVis);
 
         // optional : limit number of keypoints (helpful for debugging and learning)
         bool bLimitKpts = false;
@@ -196,13 +272,14 @@ int main(int argc, const char *argv[])
             /* MATCH KEYPOINT DESCRIPTORS */
 
             vector<cv::DMatch> matches;
-            string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
-            string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
-            string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
+            string descriptorTypeBH = "DES_BINARY"; // DES_BINARY, DES_HOG
+            if (descriptorType.compare("SIFT") == 0)
+                descriptorTypeBH = "DES_HOG";
+
 
             matchDescriptors((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints,
                              (dataBuffer.end() - 2)->descriptors, (dataBuffer.end() - 1)->descriptors,
-                             matches, descriptorType, matcherType, selectorType);
+                             matches, descriptorTypeBH, matcherType, selectorType);
 
             // store matches in current data frame
             (dataBuffer.end() - 1)->kptMatches = matches;
