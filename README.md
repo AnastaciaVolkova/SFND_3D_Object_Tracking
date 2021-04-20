@@ -33,3 +33,12 @@ In this final project, you will implement the missing parts in the schematic. To
 2. Make a build directory in the top level project directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
 4. Run it: `./3D_object_tracking`.
+
+## Run
+```shell
+./3D_object_tracking -det detectorType -des descriptorType -sel selectorType -mat matcherType -vis 0|1
+```
+- detectorType: SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT (default **SHITOMASI**)
+- descriptorType: BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT (default **BRISK**)
+- matcherType: MAT_BF, MAT_FLANN (default **MAT_BF**)
+- selectorType: SEL_NN, SEL_KNN (default **SEL_KNN**)
