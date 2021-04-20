@@ -56,13 +56,14 @@ public:
     int data_buffer_size_;
 };
 
-bool ReadCommandLine(int argc, const char* argv[], string& detectorType, string& descriptorType, string& selectorType, string& matcherType, bool& bVis){
+bool ReadCommandLine(int argc, const char* argv[], string& detectorType, string& descriptorType, string& selectorType, string& matcherType, bool& bVis, string& save_dir){
     int i = 1;
-    string command_line_help = "-det detectorType -des descriptorType -sel selectorType -mat matcherType -vis 0|1";
+    string command_line_help = "-det detectorType -des descriptorType -sel selectorType -mat matcherType -vis 0|1 -dir save_dir";
     command_line_help += "\ndetectorType: SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT (default SHITOMASI)";
     command_line_help += "\ndescriptorType: BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT (default BRISK)";
     command_line_help += "\nmatcherType: MAT_BF, MAT_FLANN (default MAT_BF)";
     command_line_help += "\nselectorType: SEL_NN, SEL_KNN (default SEL_KNN)";
+    command_line_help += "\ndirectory to save images (default ./out)";
 
     if ( (argc == 2) && (std::string(argv[1]) == std::string("-h") ) ){
         std::cout << command_line_help << std::endl;
@@ -81,6 +82,13 @@ bool ReadCommandLine(int argc, const char* argv[], string& detectorType, string&
             matcherType = argv[i++];
         else if (us_in == "-vis")
             bVis = strcmp(argv[i++], "0")==0? false: true;
+        else if (us_in == "-dir"){
+            save_dir = argv[i++];
+#if !defined (SAVE)
+            cout << "Warning: save_dir is not used as image are show. Build with -DSAVE" << endl;
+#else
+#endif
+        }
         else{
             std::cout << "Invalid command line" << std::endl;
             std::cout << command_line_help << std::endl;
@@ -141,6 +149,7 @@ int main(int argc, const char *argv[])
     int dataBufferSize = 2;       // no. of images which are held in memory (ring buffer) at the same time
     CircleBuffer<DataFrame> dataBuffer(dataBufferSize); // list of data frames which are held in memory at the same time
     bool bVis = true;            // visualize results
+    string save_dir = "./out/";
 
     string detectorType("SHITOMASI");
     string descriptorType("BRISK");
@@ -151,7 +160,7 @@ int main(int argc, const char *argv[])
     // descriptorType BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
     // matcherType MAT_BF, MAT_FLANN
     // selectorType SEL_NN, SEL_KNN
-    if (ReadCommandLine(argc, argv, detectorType, descriptorType, selectorType, matcherType, bVis))
+    if (ReadCommandLine(argc, argv, detectorType, descriptorType, selectorType, matcherType, bVis, save_dir))
         return -1;
 
     /* MAIN LOOP OVER ALL IMAGES */
@@ -340,9 +349,7 @@ int main(int argc, const char *argv[])
                     clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches);
                     computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera);
                     //// EOF STUDENT ASSIGNMENT
-#if defined(SAVE)
-                    cout << "ttcLidar=" << ttcLidar << " ttcCamera=" << ttcCamera << endl;
-#endif
+                    cout << "ttcLidar=" << ttcLidar << "\nttcCamera=" << ttcCamera << endl;
                     bVis = true;
                     if (bVis)
                     {
