@@ -230,6 +230,7 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
 {
     // 1. Compute ratios of distance between every point of current and previous frames.
     vector<float> ratios; // Ratios of distances between points of previous and current frames.
+    double minDist = 100.0;
     for (int i = 0; i < kptMatches.size(); i++){
         cv::Point2f kp_prev_i = kptsPrev[kptMatches[i].queryIdx].pt;
         cv::Point2f kp_curr_i = kptsCurr[kptMatches[i].trainIdx].pt;
@@ -238,7 +239,7 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
             cv::Point2f kp_curr_j = kptsCurr[kptMatches[j].trainIdx].pt;
             float d_prev = cv::norm(kp_prev_i-kp_prev_j);
             float d_curr = cv::norm(kp_curr_i-kp_curr_j);
-            if (d_curr> numeric_limits<float>::epsilon())
+            if (d_curr < minDist)
                 ratios.push_back(d_prev/d_curr);
         }
     }
@@ -246,7 +247,7 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
     //2. Get rid of outliers.
     sort(ratios.begin(), ratios.end());
 
-    vector<float>::reverse_iterator lo, hi;
+    vector<float>::iterator lo, hi;
     double q1, q3, irq;
 
     // Decide wheather object is approaching or moving away.
@@ -257,7 +258,7 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
     else
         ratios.erase(ratios.begin(), i);
 
-    if (ratios.size()<20){
+    if (ratios.size()<10){
         q1 = ratios.front();
         q3 = ratios.back();
     } else {
@@ -271,12 +272,15 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
     cout << "Camera: irq=" << irq << endl;
     cout << "Camera: pts_num=" << kptMatches.size() << endl;
 #endif
-
-    // Average over ratios  which are compliant to Interquartile Rule.
-    hi = lower_bound(ratios.rbegin(), ratios.rend(), 1.5*irq + q3);
-    lo = make_reverse_iterator(upper_bound(ratios.begin(), ratios.end(), q1 - 1.5*irq));
-
-    double avg_ratio = accumulate(lo, hi, 0.0)/distance(lo, hi);
+    double avg_ratio;
+    if (irq == 0)
+        avg_ratio = q1;
+    else{
+        // Average over ratios  which are compliant to Interquartile Rule.
+        lo = upper_bound(ratios.begin(), ratios.end(), q1 - 1.5*irq);
+        hi = upper_bound(ratios.begin(), ratios.end(), q3 + 1.5*irq)-1;
+        avg_ratio = accumulate(lo, hi, 0.0)/distance(lo, hi);
+    }
 
     // r = s1/s2 - ratio between distance of 2 points of previous frame and distance of 2 points of current frame.
     // r = d1/d2 - d1 - distance to object on previous frame, d2 - distance to object on current frame.

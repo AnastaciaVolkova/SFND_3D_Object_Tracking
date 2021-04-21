@@ -41,7 +41,7 @@ In this final project, you will implement the missing parts in the schematic. To
 - detectorType: SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT (default **SHITOMASI**)
 - descriptorType: BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT (default **BRISK**)
 - matcherType: MAT_BF, MAT_FLANN (default **MAT_BF**)
-- selectorType: SEL_NN, SEL_KNN (default **SEL_KNN**)
+- selectorType: SEL_NN, SEL_KNN (default **SEL_NN**)
 - save_dir: directory to save images. Is used only if -DSAVE is set (default **./out**)
 
 ## Build to save images without visualizing
