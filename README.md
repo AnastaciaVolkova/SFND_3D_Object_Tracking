@@ -36,9 +36,15 @@ In this final project, you will implement the missing parts in the schematic. To
 
 ## Run
 ```shell
-./3D_object_tracking -det detectorType -des descriptorType -sel selectorType -mat matcherType -vis 0|1
+./3D_object_tracking -det detectorType -des descriptorType -sel selectorType -mat matcherType -dir save_dir -vis 0|1
 ```
 - detectorType: SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT (default **SHITOMASI**)
 - descriptorType: BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT (default **BRISK**)
 - matcherType: MAT_BF, MAT_FLANN (default **MAT_BF**)
 - selectorType: SEL_NN, SEL_KNN (default **SEL_KNN**)
+- save_dir: directory to save images. Is used only if -DSAVE is set (default **./out**)
+
+## Build to save images without visualizing
+```shell
+cmake -DSAVE=on ..
+```
