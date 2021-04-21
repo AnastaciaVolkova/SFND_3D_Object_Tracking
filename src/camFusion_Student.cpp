@@ -239,7 +239,7 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
             cv::Point2f kp_curr_j = kptsCurr[kptMatches[j].trainIdx].pt;
             float d_prev = cv::norm(kp_prev_i-kp_prev_j);
             float d_curr = cv::norm(kp_curr_i-kp_curr_j);
-            if (d_curr < minDist)
+            if (d_curr > minDist)
                 ratios.push_back(d_prev/d_curr);
         }
     }
@@ -286,11 +286,14 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
     // r = d1/d2 - d1 - distance to object on previous frame, d2 - distance to object on current frame.
     // TTC = d2/v, v=(d2-d1)/d_t.
     // TTC = d2*dt/(d2-d1) = dt/(1-d1/d2) = dt / (1-r)
-
     double d_t = 1/frameRate; // Get time delta from frame rate.
 
-    TTC = d_t/(1-avg_ratio);
-    if (TTC<=0) TTC = -TTC; // Avoid negative time if object is moving away.
+    if (avg_ratio == 1)
+        TTC=NAN;
+    else{
+        TTC = d_t/(1-avg_ratio);
+        if (TTC<=0) TTC = -TTC; // Avoid negative time if object is moving away.
+    }
 }
 
 
