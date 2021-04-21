@@ -62,7 +62,7 @@ bool ReadCommandLine(int argc, const char* argv[], string& detectorType, string&
     command_line_help += "\ndetectorType: SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT (default SHITOMASI)";
     command_line_help += "\ndescriptorType: BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT (default BRISK)";
     command_line_help += "\nmatcherType: MAT_BF, MAT_FLANN (default MAT_BF)";
-    command_line_help += "\nselectorType: SEL_NN, SEL_KNN (default SEL_KNN)";
+    command_line_help += "\nselectorType: SEL_NN, SEL_KNN (default SEL_NN)";
     command_line_help += "\ndirectory to save images (default ./out)";
 
     if ( (argc == 2) && (std::string(argv[1]) == std::string("-h") ) ){
@@ -154,7 +154,7 @@ int main(int argc, const char *argv[])
     string detectorType("SHITOMASI");
     string descriptorType("BRISK");
     string matcherType ("MAT_BF");
-    string selectorType("SEL_KNN");
+    string selectorType("SEL_NN");
 
     // detectorType SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
     // descriptorType BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
