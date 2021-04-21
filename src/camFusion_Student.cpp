@@ -245,20 +245,27 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
 
     //2. Get rid of outliers.
     sort(ratios.begin(), ratios.end());
+
+    vector<float>::reverse_iterator lo, hi;
+    double q1, q3, irq;
+
     // Decide wheather object is approaching or moving away.
-    auto i = lower_bound(ratios.begin(), ratios.end(), 1.0);
-    vector<float>::iterator it_be, it_en;
-    if (distance(ratios.begin(), i) >= ratios.size()/2){
-        it_be = ratios.begin();
-        it_en = i;
+    auto i = upper_bound(ratios.begin(), ratios.end(), 1.0);
+
+    if (distance(ratios.begin(), i) >= distance(i, ratios.end()))
+        ratios.erase(i, ratios.end());
+    else
+        ratios.erase(ratios.begin(), i);
+
+    if (ratios.size()<20){
+        q1 = ratios.front();
+        q3 = ratios.back();
     } else {
-        it_be = i;
-        it_en = ratios.end();
+        q3 = *(ratios.end() - ratios.size()/4);
+        q1 = *(ratios.begin() + ratios.size()/4);
     }
 
-    double q3 = *(it_en - (3+distance(it_be, it_en))/4);
-    double q1 = *(it_be + distance(it_be, it_en)/4);
-    double irq = q3-q1;
+    irq = q3-q1;
 
 #if defined(SAVE)
     cout << "Camera: irq=" << irq << endl;
@@ -266,8 +273,9 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
 #endif
 
     // Average over ratios  which are compliant to Interquartile Rule.
-    auto hi = upper_bound(it_be, it_en, 1.5*irq + q3)-1;
-    auto lo = upper_bound(it_be, it_en, q1 - 1.5*irq);
+    hi = lower_bound(ratios.rbegin(), ratios.rend(), 1.5*irq + q3);
+    lo = make_reverse_iterator(upper_bound(ratios.begin(), ratios.end(), q1 - 1.5*irq));
+
     double avg_ratio = accumulate(lo, hi, 0.0)/distance(lo, hi);
 
     // r = s1/s2 - ratio between distance of 2 points of previous frame and distance of 2 points of current frame.
