@@ -258,6 +258,11 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
     else
         ratios.erase(ratios.begin(), i);
 
+    if (ratios.size()==0){
+        TTC=NAN;
+        return;
+    }
+
     if (ratios.size()<10){
         q1 = ratios.front();
         q3 = ratios.back();
