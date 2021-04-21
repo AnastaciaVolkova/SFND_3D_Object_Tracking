@@ -349,7 +349,7 @@ int main(int argc, const char *argv[])
                     clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches);
                     computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera);
                     //// EOF STUDENT ASSIGNMENT
-                    cout << "ttcLidar=" << ttcLidar << "\nttcCamera=" << ttcCamera << endl;
+                    cout << "Lidar: ttc=" << ttcLidar << " s\nCamera: ttc=" << ttcCamera << " s" << endl;
                     bVis = true;
                     if (bVis)
                     {

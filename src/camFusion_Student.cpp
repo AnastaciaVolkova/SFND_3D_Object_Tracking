@@ -256,9 +256,14 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
         it_en = ratios.end();
     }
 
-    double q3 = *(it_en - distance(it_be, it_en)/4);
+    double q3 = *(it_en - (3+distance(it_be, it_en))/4);
     double q1 = *(it_be + distance(it_be, it_en)/4);
     double irq = q3-q1;
+
+#if defined(SAVE)
+    cout << "Camera: irq=" << irq << endl;
+    cout << "Camera: pts_num=" << kptMatches.size() << endl;
+#endif
 
     // Average over ratios  which are compliant to Interquartile Rule.
     auto hi = upper_bound(it_be, it_en, 1.5*irq + q3)-1;
@@ -273,6 +278,7 @@ void computeTTCCamera(vector<cv::KeyPoint> &kptsPrev, vector<cv::KeyPoint> &kpts
     double d_t = 1/frameRate; // Get time delta from frame rate.
 
     TTC = d_t/(1-avg_ratio);
+    if (TTC<=0) TTC = -TTC; // Avoid negative time if object is moving away.
 }
 
 
@@ -293,9 +299,9 @@ void computeTTCLidar(vector<LidarPoint> &lidarPointsPrev,
     double q3 = *(d_dist.end() - d_dist.size()/4);
     double q1 = *(d_dist.begin() + d_dist.size()/4);
     double irq = q3-q1;
-    #if defined(SAVE)
-    cout << "irq=" << irq << endl;
-    #endif
+#if defined(SAVE)
+    cout << "Lidar: irq=" << irq << endl;
+#endif
 
     auto hi = upper_bound(d_dist.begin(), d_dist.end(), 1.5*irq + q3)-1;
     auto lo = upper_bound(d_dist.begin(), d_dist.end(), q1 - 1.5*irq);
