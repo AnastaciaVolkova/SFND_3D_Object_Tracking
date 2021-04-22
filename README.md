@@ -29,10 +29,14 @@ In this final project, you will implement the missing parts in the schematic. To
 
 ## Basic Build Instructions
 
-1. Clone this repo.
-2. Make a build directory in the top level project directory: `mkdir build && cd build`
-3. Compile: `cmake .. && make`
-4. Run it: `./3D_object_tracking`.
+1. Clone this repo
+2. Get media data
+```shell
+git lfs pull
+```
+3. Make a build directory in the top level project directory: `mkdir build && cd build`
+4. Compile: `cmake .. && make`
+5. Run it: `./3D_object_tracking`.
 
 ## Run
 ```shell
