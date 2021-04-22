@@ -93,7 +93,11 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
         extractor = cv::AKAZE::create();
     } else if (descriptorType.compare("SIFT") == 0){
         cout << "SIFT descriptor extractor: ";
+#if OPEN_CV_MINOR_VERSION < 5
+        extractor = cv::xfeatures2d::SIFT::create();
+#else
         extractor = cv::SIFT::create();
+#endif
     } else {
         throw "Invalid descriptpr type";
     }
@@ -228,7 +232,11 @@ void detKeypointsModern(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, std:
     }
     else if (detectorType.compare("SIFT") == 0){
         cout << "SIFT detector: ";
+#if OPEN_CV_MINOR_VERSION < 5
+        detector = cv::xfeatures2d::SIFT::create();
+#else
         detector = cv::SIFT::create();
+#endif
     }
     else
         throw "Invalid detector type";
