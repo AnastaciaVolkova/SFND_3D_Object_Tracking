@@ -48,3 +48,13 @@ In this final project, you will implement the missing parts in the schematic. To
 ```shell
 cmake -DSAVE=on ..
 ```
+## FP.0 Final Report
+Assignment|Function|Call|Declared|Defined|Return|What is it|
+----------|--------|----|--------|-------|------|----------|
+FP1|matchBoundingBoxes|FinalProject_Camera.cpp:304|camFusion.hpp:14|camFusion_Student.cpp:354|matches|ids pairs of the matched regions of interest|
+FP2|computeTTCLidar|FinalProject_Camera.cpp:342|camFusion.hpp:20|camFusion_Student.cpp:305|TTC|time-to-collision based on Lidar data|
+|FP3|clusterKptMatchesWithROI|FinalProject_Camera.cpp:349|camFusion.hpp:13|camFusion_Student.cpp:150|boundingBox.kptMatches|Keypoint matches which correspond to a given bounding box|
+|FP4|computeTTCCamera|FinalProject_Camera.cpp:350|camFusion.hpp:18|camFusion_Student.cpp:228|TTC|time-to-collision based on keypoint correspondences in successive images|
+|FP5|Done in FP56.pdf and fp5_6.xlsx|
+|FP6|Done in FP56.pdf and fp5_6.xlsx|
+
